@@ -1,0 +1,185 @@
+<!DOCTYPE HTML>
+<html ng-app="mathQuiz">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Adaptive Math Test</title>
+		<link rel="stylesheet" type="text/css" href="css/quiz.css">
+		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css">
+		<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
+		<!-- Auth0's lock widget library -->
+		<link href="/css/literallycanvas.css" rel="stylesheet">
+		<script type="text/javascript" src="https://cdn.auth0.com/js/lock-9.2.min.js"></script>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<link rel="icon" href="/faith.png">
+		
+	</head>
+	<body>
+		<span us-spinner="{radius:30, width:8, length: 16}"></span>
+		<div id="mathQuiz" ng-controller="QuizController">
+			<div ng-show="scratchpad" class="my-drawing visibilityhide" id="scratchpadshow"></div>				
+			<div class="header noselect"><h1>All Gifted<span ng-if="activeQuestion === -1">Mathematics</span></h1>
+				<div class="progress visibilityhide" id="progressshow">
+					<div class="
+					{{($index === activeQuestion) ? 'on':'off'}}
+					{{ (myQuestion.questionState === 'answered') ? 'answered' : 'unanswered'}} 
+					{{ (myQuestion.correctness === 'correct') ? 'correct' : 'incorrect'}}"
+					ng-repeat="myQuestion in myQuestions"></div>
+				</div>
+			</div>
+			<div class="intro noselect {{ (activeQuestion > -1) ? 'inactive' :'active'}}">
+				<div ng-if="enrolled">
+					<h2>Welcome</h2>
+ 					<p>Click to start Adaptive Kindergarten to Primary Six Math course</p>
+ 					<div ng-click="login()" class="startbtn">START <i class="fa fa-chevron-right"></i></div>
+				</div>
+				<div ng-if="!enrolled" class="visibilityhide" id="mastercodeunenroll">
+					<h3>Mastercode Registration Needed<br> <input type="number" class="mastercode" ng-model="mastercode.mastercode" placeholder="Mastercode"></h3>
+					<p><input type="text" ng-model = "mastercode.firstname" placeholder="First Name" class="mastercode" required>
+					<input type="text" ng-model = "mastercode.lastname" placeholder="Last Name" class="mastercode" required>
+
+					<input type="datetime" ng-model = "mastercode.date_of_birth" placeholder="Birthdate in mm/dd/yyyy" class="mastercode" required></p>
+					<p ng-click="sendMastercode()" class="startbtn">SUBMIT <i class="fa fa-chevron-right"></i></p>
+				</div>
+			</div>
+			<div class="question noselect
+				{{ $index === activeQuestion ? 'active':'inactive'}} {{ myQuestion.questionState === 'answered' ? 'answered':'unanswered'}} visibilityhide" ng-repeat="myQuestion in myQuestions" ng-show="questionshowing($index)" id="mathquestionshow">
+				<div katex bind="myQuestion.question" auto-render class="txt" id="question_{{myQuestion.id}}"></div>
+				<p><img ng-if="myQuestion.question_image" class="question_image" ng-src="{{baseurl}}{{myQuestion.question_image}}" onContextMenu="return false;"/></p>
+				<div ng-show="myQuestion.type == 1">
+					<div katex bind="Answer.text" auto-render
+						ng-repeat="Answer in myQuestions[$index].answers"
+						ng-show = "Answer.text != null || Answer.image != null"
+						ng-style="{ 'background-image':'url({{baseurl}}{{Answer.image}})'}"
+						ng-class="{
+							image:Answer.image,
+							selected: isSelected($parent.$index, $index),
+							correct: isCorrect($parent.$index, $index)
+						}" 
+						ng-click="selectAnswer($parent.$index, $index)"
+						class="ans"></div>						
+				</div>
+				<div ng-show="myQuestion.type == 2" ng-if="myQuestion.questionState != 'answered'">
+					<p ng-click="selectAnswer($index,0)" class="keybtn">Submit</p>
+				</div>
+				<div class="feedback">
+					<p ng-show="myQuestion.correctness === 'correct'">You are <strong>correct</strong>!</p>
+					<p ng-show="myQuestion.correctness === 'incorrect'">Oops! That is <strong>not correct.</strong></p>
+					<p>{{myQuestion.feedback}}</p>
+					<div class="btn" ng-click="selectContinue($index)" ng-show="continuetohide($index)">Continue</div>
+				</div>
+			</div>
+			<div class="results  {{(totalQuestions === activeQuestion) ? 'active' : 'inactive'}} visibilityhide" id="resultshow" ng-show="resulting()">
+				<h3>Results</h3>
+				<br>
+				<p>{{resultmsg}}</p>
+				<p>You scored {{percentage | number:2}}% and {{kudos}} kudos for the latest test<span ng-if="maxile > 0">, and now your maxile level is {{maxile}}</span>.</p>
+				<div>What do you want to do next?</div>
+				<div class="share" ng-bind-html = "createShareLinks(percentage)" compile-template></div>
+				<div><a ng-click="logout()" class="btn end" href="#">End Test</a></div>
+			</div>
+			<!-- codes for the calculator -->
+			<div id="scientificCalc11" ng-show="calculator" class="visibilityhide" > 
+				<div id="errmsg" ></div>
+				<div id="results"></div>  
+				<table style="width:250px;">
+				  <tr>
+				    <td class="cell"><input type="button" class='calcbttn'  value="7"  id="7" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="8"  id="8" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="9"  id="9" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="/"  id="divide" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="("  id="parenleft" /></td> 
+				  </tr>
+				 
+				   <tr>
+				    <td class="cell"><input type="button" class='calcbttn'  value="4"  id="4" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="5"  id="5" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="6"  id="6" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="*"  id="multiply" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value=")"  id="parenright" /></td> 
+				  </tr> 
+				   <tr>
+				    <td class="cell"><input type="button" class='calcbttn'  value="1"  id="1" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="2"  id="2" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="3"  id="3" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="+"  id="plus" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="C"  id="clear" /></td> 
+				  </tr> 
+				    <tr>
+				    <td class="cell"><input type="button" class='calcbttn'  value="0"  id="0" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="."  id="decimal" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="-"  id="minus" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="^"  id="^" /></td>
+				    <td class="cell"><input type="button" class='calcbttn'  value="="  id="evaluate" /></td> 
+				  </tr>
+				    <tr>
+				      <td class="cell"><input type="button" class='calcbttn'  value="abs"  id="abs" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="sin"  id="sin" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="cos"  id="cos" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="tan"  id="tan" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="del"  id="del" /></td>
+				    </tr>
+				    <tr>
+				      <td class="cell"><input type="button" class='calcbttn'  value="log10"  id="log10" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="log2"  id="log2" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="ln"  id="ln" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="pi"  id="pi" /></td>
+				      <td class="cell"><input type="button" class='calcbttn'  value="sqrt"  id="sqrt" /></td>
+				    </tr>
+				</table>
+				<input type="radio" name="raddeg" value="radians"  id="radians_rb"/> Radians   <input type="radio" name="raddeg" value="degrees" checked id="degrees_rb" />   degrees
+			<!-- REMOVING THE TEXT BELOW VIOLATES THE TOS OF USING THIS SCRIPT -->
+				<span style="font-size:8px; font-style:italic;">by www.meta-calculator.com</span>
+			</div>
+
+			<div class="footer"><span ng-show="activeQuestion != '-1'">
+				<i ng-click="scratchpadSwitch()" class="fa fa-pencil-square-o"></i>
+				<i ng-click="calculatorSwitch()" class="fa fa-calculator" ng-show="calculatorswitches($Index)"></i></span>Copyrighted by All Gifted LLC
+			</div>
+		</div>
+		<!-- dependency: React.js -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+		<script>
+			$(document).ready(function(){
+				$('#mastercodeunenroll').removeClass("visibilityhide");
+				$('#scientificCalc11').removeClass("visibilityhide");
+				$('#scratchpadshow').removeClass("visibilityhide");
+				$('#mathquestionshow').removeClass("visibilityhide");
+				//$('#resultshow').removeClass("visibilityhide");
+				$('#progressshow').removeClass("visibilityhide");
+			});			
+		</script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/react/0.14.7/react-with-addons.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/react/0.14.7/react-dom.js"></script>
+		<script type="text/javascript" src="js/literallycanvas.min.js"></script>
+	    <script>
+	        LC.init(
+	            document.getElementsByClassName('my-drawing')[0],
+	            {imageURLPrefix: '/static/img'}
+	        );
+	    </script>
+    	<script type="text/javascript" src="js/angular.min.js"></script>
+		<!-- Angular cookie wrapper library for client cookies -->
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0-rc.0/angular-cookies.js"></script>
+		<!-- Angular's Router Library for SPA -->
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0-rc.0/angular-route.js"></script>
+		<script type="text/javascript" src="js/angular-loading-spinner.js"></script>
+		<script type="text/javascript" src="js/angular-spinner.min.js"></script>
+		<script type="text/javascript" src="js/spin.js"></script>
+		<!-- Auth0's Angular SDK Library -->
+		<script type="text/javascript" src="https://cdn.auth0.com/w2/auth0-angular-4.js"></script>
+		<!-- Angular wrapper for localStorage and sessionStorage. Defaults to ng-cookies if not available -->
+		<script src="https://cdn.rawgit.com/auth0/angular-storage/master/dist/angular-storage.js" type="text/javascript"> </script>
+		<!-- Angular wrapper library for JWT-->
+		<script src="https://cdn.rawgit.com/auth0/angular-jwt/master/dist/angular-jwt.js" type="text/javascript"> </script>
+	    <script src="https://code.jquery.com/jquery-3.1.0.slim.min.js" integrity="sha256-cRpWjoSOw5KcyIOaZNo4i6fZ9tKPhYYb6i5T9RSVJG8=" crossorigin="anonymous"></script>
+		<script type="text/javascript" src='js/quiz.js'></script>		
+	    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
+	    <script src="//tfoxy.github.io/b/katex/dist/contrib/auto-render.min.js"></script>
+	    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
+	    <script src="//tfoxy.github.io/b/katex/dist/contrib/auto-render.min.js"></script>
+	    <script src="//tfoxy.github.io/b/angular-katex/angular-katex.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+		<script type="text/javascript" src="js/calculator.js"></script>
+    </body>
+</html>
